@@ -81,7 +81,7 @@ The key will only display once, so remember to save it somewhere if needed! Afte
 appcenter login --token <accessToken>
 ```
 
-When logging in using this method, the access token will not automatically invalidate on logout, and can be used in future sessions until it is explicitly removed from the App Center server. However, you should log out once your session is complete, to remove your credentials from disk.
+When logging in using this method, the access token will not automatically invalidate on logout, and can be used in future sessions until it is explicitly removed from the CodePush server. However, you should log out once your session is complete, to remove your credentials from disk.
 
 ## App Management
 
@@ -121,7 +121,7 @@ appcenter apps update -n <newName> -a <ownerName>/<appName>
 
 The app's name is only meant to be recognizable from the management side, so feel free to rename it as necessary. It won't actually impact the running app, since update queries are made via deployment keys.
 
-If at some point you no longer need an app, you can remove it from the server using the following command:
+If at some point you no longer need an app, you can remove it from the CodePush server using the following command:
 
 ```shell
 appcenter apps delete -a <ownerName>/<appName>
@@ -129,7 +129,7 @@ appcenter apps delete -a <ownerName>/<appName>
 
 Use caution when doing this as any apps that have been configured to use it will obviously stop receiving updates.
 
-Finally, if you want to list all apps that you've registered with the App Center server, run the following command:
+Finally, if you want to list all apps that you've registered with the CodePush server, run the following command:
 
 ```shell
 appcenter apps list
@@ -205,19 +205,19 @@ The install metrics have the following meaning:
 
 * **Pending** - The number of times this release has been downloaded, but not yet installed (i.e. the app was restarted to apply the changes). Therefore, this metric increases as updates are downloaded, and decreases as those corresponding downloaded updates are installed. This metric primarily applies to updates that aren't configured to install immediately, and helps provide the broader picture of release adoption for apps that rely on app resume and/or restart to apply an update (e.g. I want to rollback an update and I'm curious if anyone has downloaded it yet). If you've configured updates to install immediately, and are still seeing pending updates being reported, then it's likely that you're not calling `notifyApplicationReady` (or `sync`) on app start, which is the method that initiates sending install reports and marks installed updates as being considered successful.
 
-* **Rollbacks** - The number of times that this release has been automatically rolled back on the client. Ideally this number should be zero, and in that case, this metric isn't even shown. However, if you released an update that includes a crash as part of the installation process, the CodePush plugin will roll the end-user back to the previous release, and report that issue back to the server. This allows your end-users to remain unblocked in the event of broken releases, and by being able to see this telemetry in the CLI, you can identify erroneous releases and respond to them by [rolling it back](#rolling-back-updates) on the server.
+* **Rollbacks** - The number of times that this release has been automatically rolled back on the client. Ideally this number should be zero, and in that case, this metric isn't even shown. However, if you released an update that includes a crash as part of the installation process, the CodePush plugin will roll the end-user back to the previous release, and report that issue back to the CodePush server. This allows your end-users to remain unblocked in the event of broken releases, and by being able to see this telemetry in the CLI, you can identify erroneous releases and respond to them by [rolling it back](#rolling-back-updates) on the CodePush server.
 
 * **Rollout** - Indicates the percentage of users that are eligible to receive this update. This property will only be displayed for releases that represent an "active" rollout, and therefore, have a rollout percentage that is less than 100%. Additionally, since a deployment can only have one active rollout at any given time, this label would only be present on the latest release within a deployment.
 
 * **Disabled** - Indicates whether the release has been marked as disabled or not, and therefore, is downloadable by end users. This property will only be displayed for releases that are actually disabled.
 
-When the metrics cell reports `No installs recorded`, that indicates that the server hasn't seen any activity for this release. This could either be because it precluded the plugin versions that included telemetry support, or no end-users have synchronized with the CodePush server yet. As soon as an install happens, you will begin to see metrics populate in the CLI for the release.
+When the metrics cell reports `No installs recorded`, that indicates that the CodePush server hasn't seen any activity for this release. This could either be because it precluded the plugin versions that included telemetry support, or no end-users have synchronized with the CodePush server yet. As soon as an install happens, you will begin to see metrics populate in the CLI for the release.
 
 ## <a name="releasing-app-updates" />Releasing Updates
 
-Once your app has been configured to query for updates against the App Center server, you can begin releasing updates to it. In order to provide both simplicity and flexibility, the App Center CLI includes three different commands for releasing updates:
+Once your app has been configured to query for updates against the CodePush server, you can begin releasing updates to it. In order to provide both simplicity and flexibility, the App Center CLI includes three different commands for releasing updates:
 
-1. [General](#releasing-updates-general) - Releases an update to the App Center server that was generated by an external tool or build script (e.g. a Gulp task, the `react-native bundle` command). This provides the most flexibility in terms of fitting into existing workflows, since it strictly deals with CodePush-specific step, and leaves the app-specific compilation process to you.
+1. [General](#releasing-updates-general) - Releases an update to the CodePush server that was generated by an external tool or build script (e.g. a Gulp task, the `react-native bundle` command). This provides the most flexibility in terms of fitting into existing workflows, since it strictly deals with CodePush-specific step, and leaves the app-specific compilation process to you.
 
 2. [React Native](#releasing-updates-react-native) - Performs the same functionality as the general release command, but also handles the task of generating the updated app contents for you (JS bundle and assets), instead of requiring you to run both `react-native bundle` and then `appcenter codepush release`.
 
@@ -330,7 +330,7 @@ This specifies whether the update should be considered mandatory or not (e.g. it
 > [!NOTE]
 > This parameter is simply a "flag", and therefore, its absence indicates that the release is optional, and its presence indicates that it's mandatory. You can provide a value to it (e.g. `--mandatory true`), however, simply specifying `--mandatory` is sufficient for marking a release as mandatory.*
 
-The mandatory attribute is unique because the server will dynamically modify it as necessary in order to ensure that the semantics of your releases are maintained for your end-users. For example, imagine that you released the following three updates to your app:
+The mandatory attribute is unique because the CodePush server will dynamically modify it as necessary in order to ensure that the semantics of your releases are maintained for your end-users. For example, imagine that you released the following three updates to your app:
 
 | Release | Mandatory? |
 |---------|------------|
@@ -338,11 +338,11 @@ The mandatory attribute is unique because the server will dynamically modify it 
 | v2      | Yes        |
 | v3      | No         |
 
-If an end-user is currently running `v1`, and they query the server for an update, it will respond with `v3` (since that is the latest), but it will dynamically convert the release to mandatory, since a mandatory update was released in between. This behavior is important since the code contained in `v3` is incremental to that included in `v2`, and therefore, whatever made `v2` mandatory, continues to make `v3` mandatory for anyone that didn't already acquire `v2`.
+If an end-user is currently running `v1`, and they query the CodePush server for an update, it will respond with `v3` (since that is the latest), but it will dynamically convert the release to mandatory, since a mandatory update was released in between. This behavior is important since the code contained in `v3` is incremental to that included in `v2`, and therefore, whatever made `v2` mandatory, continues to make `v3` mandatory for anyone that didn't already acquire `v2`.
 
-If an end-user is currently running `v2`, and they query the server for an update, it will respond with `v3`, but leave the release as optional. This is because they already received the mandatory update, and therefore, there isn't a need to modify the policy of `v3`. This behavior is why we say that the server will "dynamically convert" the mandatory flag, because as far as the release goes, its mandatory attribute will always be stored using the value you specified when releasing it. It is only changed on-the-fly as necessary when responding to an update check from an end-user.
+If an end-user is currently running `v2`, and they query the CodePush server for an update, it will respond with `v3`, but leave the release as optional. This is because they already received the mandatory update, and therefore, there isn't a need to modify the policy of `v3`. This behavior is why we say that the CodePush erver will "dynamically convert" the mandatory flag, because as far as the release goes, its mandatory attribute will always be stored using the value you specified when releasing it. It is only changed on-the-fly as necessary when responding to an update check from an end-user.
 
-If you never release an update that is marked as mandatory, then the above behavior doesn't apply to you, since the server will never change an optional release to mandatory unless there were intermingled mandatory updates as illustrated above. Additionally, if a release is marked as mandatory, it will never be converted to optional, since that wouldn't make any sense. The server will only change an optional release to mandatory in order to respect the semantics described above.
+If you never release an update that is marked as mandatory, then the above behavior doesn't apply to you, since the CodePush server will never change an optional release to mandatory unless there were intermingled mandatory updates as illustrated above. Additionally, if a release is marked as mandatory, it will never be converted to optional, since that wouldn't make any sense. The CodePush server will only change an optional release to mandatory in order to respect the semantics described above.
 
 > [!TIP]
 > This parameter can be set using either `--mandatory` or `-m`*
@@ -429,7 +429,7 @@ This is the same parameter as the one described in the [above section](#app-name
 
 #### Platform parameter
 
-This specifies which platform the current update is targeting, and can be either `android`, `ios` or `windows` (case-insensitive). This value is only used to determine how to properly bundle your update contents and isn't actually sent to the server.
+This specifies which platform the current update is targeting, and can be either `android`, `ios` or `windows` (case-insensitive). This value is only used to determine how to properly bundle your update contents and isn't actually sent to the CodePush server.
 
 #### Deployment name parameter
 
